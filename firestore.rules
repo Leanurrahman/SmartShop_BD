@@ -1,0 +1,183 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Primitive Definitions & Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Hardcoded bootstrapped admin for the current user
+    function isHardcodedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'leanroom1@gmail.com' && isEmailVerified();
+    }
+
+    function isAdmin() {
+      return isHardcodedAdmin() || (
+        isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 2. Validation Blueprints
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 128 &&
+             data.role in ['user', 'admin'] &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'category']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string && data.category.size() <= 128 &&
+             (data.get('description', '') is string && data.get('description', '').size() <= 2000);
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'items', 'total', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.items is list && data.items.size() > 0 &&
+             data.total is number && data.total >= 0 &&
+             data.createdAt == request.time;
+    }
+
+    // 3. Collection Rules
+    
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Users should not list other users
+      allow create: if isSignedIn() && isValidUser(incoming()) && (incoming().role == 'user' || isHardcodedAdmin());
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    isValidUser(incoming()) &&
+                    (incoming().role == existing().role || isAdmin()); // Prevent users from promoting themselves
+    }
+
+    // Products Collection
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidProduct(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Categories Collection
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidOrder(incoming()) && (incoming().userId == request.auth.uid);
+      allow update: if isAdmin(); // Only admins can update order status etc.
+    }
+
+    // Reviews Collection
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isEmailVerified() && incoming().userId == request.auth.uid;
+      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+
+    // Wishlist Collection
+    match /wishlist/{wishId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow write: if isSignedIn() && (
+        (resource == null && incoming().userId == request.auth.uid) || 
+        (resource != null && existing().userId == request.auth.uid && incoming().userId == request.auth.uid)
+      );
+    }
+
+    // Coupons Collection
+    match /coupons/{couponId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Notifications Collection
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Refund Requests Collection
+    match /refundRequests/{refundId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    // Helper functions for Lottery elements
+    function isValidLotteryOffer(data) {
+      return data.keys().hasAll(['name', 'discount', 'discountType', 'occasion']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+             data.discount is number && data.discount >= 0 &&
+             data.discountType is string && data.discountType in ['percentage', 'fixed'] &&
+             data.occasion is string && data.occasion.size() > 0;
+    }
+
+    function isValidUserSpin(data) {
+      return data.keys().hasAll(['userId', 'userEmail', 'offerId', 'offerName', 'discount', 'discountType', 'occasion', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.userEmail is string && data.userEmail.size() > 0 &&
+             data.offerId is string && data.offerId.size() > 0 &&
+             data.offerName is string && data.offerName.size() > 0 &&
+             data.discount is number && data.discount >= 0 &&
+             data.occasion is string && data.occasion.size() > 0 &&
+             data.createdAt == request.time;
+    }
+
+    // Lottery Offers Collection
+    match /lotteryOffers/{offerId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidLotteryOffer(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // User Spins Collection
+    match /userSpins/{spinId} {
+      allow get: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && (incoming().userId == request.auth.uid) && isValidUserSpin(incoming());
+    }
+
+    // Test connection doc
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

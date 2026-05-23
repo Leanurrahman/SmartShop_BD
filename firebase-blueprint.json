@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "addresses": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "product": {
+      "title": "Product",
+      "description": "Product details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "discountPrice": { "type": "number" },
+        "category": { "type": "string" },
+        "subcategory": { "type": "string" },
+        "stock": { "type": "number" },
+        "brand": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number" },
+        "featured": { "type": "boolean" },
+        "popularity": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "order": {
+      "title": "Order",
+      "description": "Order details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "phone": { "type": "string" },
+        "shippingAddress": { "type": "object" },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "deliveryCharge": { "type": "number" },
+        "total": { "type": "number" },
+        "couponCode": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "orderStatus": { "type": "string" },
+        "trackingInfo": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "lotteryOffer": {
+      "title": "Lottery Offer",
+      "description": "Defined seasonal lottery prize sectors on the wheel",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "discount": { "type": "number" },
+        "discountType": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "occasion": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "userSpin": {
+      "title": "User Spin",
+      "description": "Record of user spins to enforce limits",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "offerId": { "type": "string" },
+        "offerName": { "type": "string" },
+        "discount": { "type": "number" },
+        "discountType": { "type": "string" },
+        "occasion": { "type": "string" },
+        "code": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "users": { "schema": "user", "description": "User profiles" },
+    "products": { "schema": "product", "description": "Product collection" },
+    "orders": { "schema": "order", "description": "Order history" },
+    "categories": { "schema": "object", "description": "Categories" },
+    "reviews": { "schema": "object", "description": "Product reviews" },
+    "wishlist": { "schema": "object", "description": "User wishlists" },
+    "coupons": { "schema": "object", "description": "Discount coupons" },
+    "notifications": { "schema": "object", "description": "In-app notifications" },
+    "refundRequests": { "schema": "object", "description": "Refund requests" },
+    "lotteryOffers": { "schema": "lotteryOffer", "description": "Seasonal or occasional lottery wheel offers" },
+    "userSpins": { "schema": "userSpin", "description": "Spin records to enforce limitations per user/occasion" }
+  }
+}

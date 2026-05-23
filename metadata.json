@@ -1,0 +1,6 @@
+{
+  "name": "SmartShop BD",
+  "description": "AI-powered modern e-commerce application for Bangladesh featuring smooth animations, personalized shopping, and bKash payment simulation.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
